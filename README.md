@@ -1,5 +1,7 @@
 # Fidelity Export and Format
 
+> A quick, honest note on why this exists: I write up research and academic papers inside Obsidian, and every other plugin forced me out into some external editor the moment I wanted a clean export — and none of them kept the image **wrap-around** intact. I got tired of it, so I decided to just fix my own problem. This is the result, and I figured I'd share it in case it scratches the same itch for someone else.
+
 Export the current note to **self-contained HTML** and **A4 PDF** while preserving the formatting you see in Obsidian's reading view — Pixel Banner banners with fade, images with float wrap-around and captions (Image Captions), embed link cards, tables, callouts, footnotes.
 
 Under the hood: a custom Markdown parser in Python plus WeasyPrint as the rendering engine. Images are inlined as `data:` URIs, so the HTML output is a single portable file with no asset folders. The plugin then drives the script from a side-by-side GUI with a live preview.
