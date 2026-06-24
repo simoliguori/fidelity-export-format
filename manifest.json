@@ -3,7 +3,7 @@
   "name": "Fidelity Export and Format",
   "version": "0.3.0",
   "minAppVersion": "1.4.0",
-  "description": "High-fidelity HTML and PDF export preserving banners, image captions, float wrap-around, tables, callouts and footnotes. Themes, live PDF preview and page-break splicing. PDF needs Python 3 + WeasyPrint on desktop; HTML works on mobile.",
+  "description": "Export research and academic papers to high-fidelity HTML and PDF without leaving Obsidian. Preserves image wrap-around, banners, captions, tables, callouts and footnotes. Live PDF preview and page-break splicing. PDF needs Python 3 + WeasyPrint.",
   "author": "simoen",
   "authorUrl": "https://github.com/simoliguori",
   "isDesktopOnly": false
