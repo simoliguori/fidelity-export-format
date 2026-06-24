@@ -365,6 +365,22 @@ def render_inline_md_to_html(text: str) -> str:
     return html
 
 
+def resolve_auto_alignment(body_html: str) -> str:
+    """Walk every `.img-align-auto` placeholder in document order and assign
+    img-align-right (even index) or img-align-left (odd index). Same alternating
+    heuristic as the user's ImgBoldFix.js, applied to the FULL body after all
+    embeds have been substituted in.
+    """
+    counter = [0]  # mutable so the regex callback can mutate it
+    def replace(m):
+        idx = counter[0]
+        counter[0] += 1
+        cls = "img-align-right" if idx % 2 == 0 else "img-align-left"
+        return m.group(0).replace("img-align-auto", cls)
+    return re.sub(r'<div class="internal-embed image-embed is-loaded img-align-auto"[^>]*>',
+                  replace, body_html)
+
+
 def make_embed_html(file_ref: str, params: dict) -> str:
     """Genera l'HTML per un embed immagine in stile Obsidian view mode."""
     asset = resolve_asset(file_ref)
@@ -377,11 +393,17 @@ def make_embed_html(file_ref: str, params: dict) -> str:
     height = params.get("height")
     caption = params.get("caption")
 
-    # Default: portrait/sized images senza align esplicito → float right (come Obsidian view mode)
-    effective_align = align
-    if effective_align is None and width:
-        effective_align = "right"
-    align_class = f" img-align-{effective_align}" if effective_align else ""
+    # Auto-align: leave a placeholder class for images with width but no explicit
+    # left/right/center. A post-pass on the full body_html resolves these by
+    # ALTERNATING right/left in document order — same logic as the user's
+    # ImgBoldFix.js (counter increments only for un-aligned images: even→right,
+    # odd→left). This makes the PDF match what the user sees in Obsidian.
+    if align:
+        align_class = f" img-align-{align}"
+    elif width:
+        align_class = " img-align-auto"  # resolved later in resolve_auto_alignment()
+    else:
+        align_class = ""
     embed_classes = f"internal-embed image-embed is-loaded{align_class}"
 
     img_style_parts = []
@@ -1423,6 +1445,10 @@ def export_note(md_path: Path, out_html: Path, out_pdf=None, theme: str = DEFAUL
         body_html = body_html.replace(
             CalloutPreprocessor.PLACEHOLDER_FMT.format(i), snippet
         )
+
+    # --- Auto-alignment alternation: walk every `img-align-auto` in DOM order
+    # and replace with right (even) / left (odd). Matches ImgBoldFix.js. ---
+    body_html = resolve_auto_alignment(body_html)
 
     # --- Wrapping disabilitato: float e paragrafi sono siblings diretti
     # in .document-body, così WeasyPrint può paginare naturalmente. ---
