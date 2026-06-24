@@ -4,6 +4,10 @@ Export the current note to **self-contained HTML** and **A4 PDF** while preservi
 
 Under the hood: a custom Markdown parser in Python plus WeasyPrint as the rendering engine. Images are inlined as `data:` URIs, so the HTML output is a single portable file with no asset folders. The plugin then drives the script from a side-by-side GUI with a live preview.
 
+<p align="center">
+  <img src="assets/demo.gif" alt="The export modal — settings panel on the left, live WeasyPrint PDF preview with banner and page-break splicing on the right" width="480">
+</p>
+
 ## Features
 
 - **Pixel Banner banners** with fade gradient (reads `banner`, `banner-x`, `banner-y` from YAML frontmatter)
@@ -28,6 +32,7 @@ The exporter does **not** call Obsidian's renderer — it parses markdown itself
 |---|---|---|
 | [**Pixel Banner**](https://obsidian.md/plugins?id=pixel-banner-plus) ([GitHub](https://github.com/jparkrr/obsidian-pixel-banner)) | Reads `banner:`, `banner-x:`, `banner-y:` from the frontmatter and emits a `.pixel-banner-image` div with `background-image: url(...)`, `background-position: <x>% <y>%`, a 380 px full-bleed height, and a gradient fade to the page background | The plugin's CSS variable names are honored: `--pixel-banner-x-position`, `--pixel-banner-y-position`. Multi-banner / video banners are not replicated |
 | [**Image Captions**](https://obsidian.md/plugins?id=obsidian-image-captions) ([GitHub](https://github.com/aarol/obsidian-image-captions)) | Renders `<figure class="image-captions-figure">` with the caption from the wikilink alt-text as `<figcaption class="image-captions-caption">` | If the caption contains markdown (links, bold), it's rendered inline |
+| [**Link Embed**](https://obsidian.md/plugins?id=obsidian-link-embed) ([GitHub](https://github.com/Seraphli/obsidian-link-embed)) | Renders the ` ```embed ` code blocks this plugin produces (`title:`, `description:`, `image:`, `url:`) as a styled link card; the preview image is downloaded and inlined as base64 | The source URL is fetched at export time to inline the thumbnail, so the card is self-contained |
 | [**Minimal theme**](https://github.com/kepano/obsidian-minimal) (kepano) | The two `minimal-*` palettes shipped with the exporter mimic Minimal's reading view: neutral palette where the accent is the only colored element; tight typography; pill-shaped tag badges | The Obsidian accent color (`Settings → Appearance → Accent color`) is read and used as the default `--accent` for the Minimal palettes |
 | [**Catppuccin theme**](https://github.com/catppuccin/obsidian) | A Kanagawa-ish dark palette is shipped (`dark-kanagawa`) for a similar aesthetic | Not a 1:1 reproduction of any Catppuccin flavour |
 
@@ -47,13 +52,6 @@ Plugins that produce their content via JavaScript at view time **do not** run du
 - **[CustomJS](https://obsidian.md/plugins?id=customjs)** scripts (e.g. the user's `ImgBoldFix.js` that adds `.img-align-*` classes to image embeds at render time) — the exporter replicates the *result* of that script for the `![[...]]` syntax by parsing the params itself, so a typical `ImgBoldFix.js` setup keeps working without it
 - **[Templater](https://obsidian.md/plugins?id=templater-obsidian)** runtime expressions — only static results saved into the file are exported
 - **Live rendering plugins** in general (Charts, Mermaid via JS, etc.)
-
-### Custom CSS snippets
-
-The plugin uses its own CSS bundle (one of the 8 themes + the user-picked accent), so **CSS snippets in `<vault>/.obsidian/snippets/` are not loaded**. Two specific user snippets that this project was built against and whose behavior is now baked into the exporter:
-
-- **`image-captions-fix.css`** — neutralizes Minimal theme's `display: grid` on paragraphs containing images and applies float alignment via `.img-align-left/right/center` to `.internal-embed.image-embed`. The exporter emits the same DOM (`<div class="internal-embed image-embed is-loaded img-align-*">` + `<figure class="image-captions-figure">`) and the equivalent CSS is hard-coded into the chosen theme bundle, so the visual result matches
-- **`export-pdf-fix.css`** (the iterative attempt at making *Better Export PDF* honor the banner and floats) — superseded by this plugin entirely; it can be removed once you're happy with the new workflow
 
 ### Comparison with other PDF exporters
 
