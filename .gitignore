@@ -1,0 +1,20 @@
+# Obsidian plugin runtime data (per-vault, not source)
+data.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Build artifacts
+*.zip

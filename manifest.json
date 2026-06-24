@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-export-fidelity",
+  "name": "Fidelity Export & Format",
+  "version": "0.3.0",
+  "minAppVersion": "1.4.0",
+  "description": "Export Obsidian notes to high-fidelity HTML and PDF (preserves banner, image captions, float wrap-around, tables, callouts and footnotes). Includes themes, accent picker, live PDF preview, and a splicing mode that lets you insert page breaks anywhere directly from inside Obsidian. PDF requires Python 3 + WeasyPrint + PyMuPDF on desktop; HTML-only works on mobile.",
+  "author": "simoen",
+  "isDesktopOnly": false
+}
