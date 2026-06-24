@@ -1,4 +1,4 @@
-# Obsidian Export Fidelity
+# Fidelity Export and Format
 
 Export the current note to **self-contained HTML** and **A4 PDF** while preserving the formatting you see in Obsidian's reading view — Pixel Banner banners with fade, images with float wrap-around and captions (Image Captions), embed link cards, tables, callouts, footnotes.
 
