@@ -168,9 +168,9 @@ python obsidian_export.py note.md --no-pdf --vault /path/to/vault -o /tmp/out
 
 Flags: `--theme`, `--accent`, `--font-size`, `--no-pdf`, `--vault`, `-o`, `--list-themes`.
 
-## Author
+## Credits
 
-simoen -- `simo.liguori@proton.me`
+**pinkisnt.dead / Simone Liguori** — [eccerobot.xyz](https://eccerobot.xyz) · `simo.liguori@proton.me`
 
 ## License
 
