@@ -1,6 +1,6 @@
 {
   "id": "fidelity-export-format",
-  "name": "Fidelity Export & Format",
+  "name": "Fidelity Export and Format",
   "version": "0.3.0",
   "minAppVersion": "1.4.0",
   "description": "High-fidelity HTML and PDF export that preserves banners, image captions, float wrap-around, tables, callouts and footnotes — with themes, an accent picker, live PDF preview and page-break splicing. PDF needs Python 3 + WeasyPrint on desktop; HTML works on mobile.",
