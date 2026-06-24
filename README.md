@@ -4,6 +4,10 @@ Export the current note to **self-contained HTML** and **A4 PDF** while preservi
 
 Under the hood: a custom Markdown parser in Python plus WeasyPrint as the rendering engine. Images are inlined as `data:` URIs, so the HTML output is a single portable file with no asset folders. The plugin then drives the script from a side-by-side GUI with a live preview.
 
+<p align="center">
+  <img src="assets/demo.gif" alt="Live preview of a note exported with full fidelity — banner, floated image with caption, formatted text" width="480">
+</p>
+
 ## Features
 
 - **Pixel Banner banners** with fade gradient (reads `banner`, `banner-x`, `banner-y` from YAML frontmatter)
