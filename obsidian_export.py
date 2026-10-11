@@ -36,6 +36,9 @@ except ImportError:
 # ============================================================
 VAULT_ROOT: Path = Path("/")
 ATTACH_ROOT: Path = Path("/")
+# Obsidian "Strict line breaks" (app.json). Default off: un singolo a capo
+# nel sorgente diventa <br>, anche dentro gli elementi di lista.
+STRICT_LINE_BREAKS: bool = False
 
 
 
@@ -74,13 +77,14 @@ def find_vault_root(note_path: Path):
 
 def set_vault_root(root: Path) -> None:
     """Imposta VAULT_ROOT e deduce ATTACH_ROOT da .obsidian/app.json o fallback."""
-    global VAULT_ROOT, ATTACH_ROOT
+    global VAULT_ROOT, ATTACH_ROOT, STRICT_LINE_BREAKS
     VAULT_ROOT = root
     app_json = root / ".obsidian" / "app.json"
     if app_json.exists():
         try:
             import json as _json
             cfg = _json.loads(app_json.read_text(encoding="utf-8"))
+            STRICT_LINE_BREAKS = bool(cfg.get("strictLineBreaks", False))
             af = cfg.get("attachmentFolderPath", "")
             if af and af != "/":
                 candidate = (root / af) if not af.startswith("/") else (root / af.lstrip("/"))
@@ -528,10 +532,11 @@ class CalloutPreprocessor(Preprocessor):
                 stripped = re.sub(r"^>\s?", "", lines[i])
                 content_lines.append(stripped)
                 i += 1
-            content_md = "\n".join(content_lines)
+            content_md = separate_lists_from_paragraphs("\n".join(content_lines))
             content_html = markdown.markdown(
                 content_md,
-                extensions=["tables", "fenced_code", "sane_lists", "attr_list"],
+                extensions=["tables", "fenced_code", "sane_lists", "attr_list"]
+                + ([] if STRICT_LINE_BREAKS else ["nl2br"]),
             ) if content_md.strip() else ""
             display_title = title if title else ctype.replace("_", " ").title()
             title_html = render_inline_md_to_html(display_title)
@@ -1349,10 +1354,43 @@ def filter_orphan_footnotes(body: str) -> str:
         flags=re.MULTILINE,
     )
 
+
+_LIST_ITEM_RE = re.compile(r"^ {0,3}(?:[-*+]|\d+[.)])[ \t]+\S")
+_LIST_START_RE = re.compile(r"^ {0,3}(?:[-*+]|1[.)])[ \t]+\S")
+_FENCE_RE = re.compile(r"^ {0,3}(```|~~~)")
+
+
+def separate_lists_from_paragraphs(text: str) -> str:
+    """Come in Obsidian (CommonMark), una lista può interrompere un paragrafo
+    senza riga vuota prima. Python-Markdown invece la fonde nel paragrafo:
+    inseriamo una riga vuota prima del primo elemento."""
+    out = []
+    fence = None
+    prev = ""
+    for line in text.split("\n"):
+        m = _FENCE_RE.match(line)
+        if m:
+            if fence is None:
+                fence = m.group(1)
+            elif m.group(1) == fence:
+                fence = None
+        elif (
+            fence is None
+            and _LIST_START_RE.match(line)
+            and prev.strip()
+            and not prev[0].isspace()
+            and not _LIST_ITEM_RE.match(prev)
+        ):
+            out.append("")
+        out.append(line)
+        prev = line
+    return "\n".join(out)
+
 def export_note(md_path: Path, out_html: Path, out_pdf=None, theme: str = DEFAULT_THEME, accent: str = None, font_size: int = 16, bg: str = None, hide_properties: bool = False, hide_title: bool = False, skip_html: bool = False, page_breaks_before: list = None, margin_h: float = 2.2, margin_v: float = 1.6, page_numbers: bool = False, preview_pages_dir: Path = None):
     raw = md_path.read_text(encoding="utf-8")
     fm, body = split_frontmatter(raw)
     body = filter_orphan_footnotes(body)
+    body = separate_lists_from_paragraphs(body)
 
     # --- inline title = nome del file (come "Inline title" di Obsidian) ---
     # L'H1 del body resta intatto come heading normale, separato dal titolo della nota.
@@ -1405,7 +1443,7 @@ def export_note(md_path: Path, out_html: Path, out_pdf=None, theme: str = DEFAUL
             WikilinkEmbedExtension(wikilink_storage),
             EmbedBlockExtension(embed_storage),
             CalloutExtension(callout_storage),
-        ],
+        ] + ([] if STRICT_LINE_BREAKS else ["nl2br"]),
         extension_configs={
             "footnotes": {
                 "BACKLINK_TEXT": "↩",
