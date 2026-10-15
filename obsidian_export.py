@@ -333,12 +333,13 @@ def parse_embed_params(parts: list[str]) -> dict:
     """Distingue caption / align / width / height nei pipe-separated params.
     Regola:
       - se è 'left'/'right'/'center' -> align
-      - se è un intero puro -> dimensione (prima width, poi height)
+      - se è un intero puro -> dimensione (SOLO width — successivi int sono ignorati,
+        per evitare che `|350|left|350` forzi un quadrato deformante. La sintassi
+        canonica di Obsidian per height è `widthxheight`, non `|width|height|`.)
       - altrimenti -> caption (concatenate se più di una)
     """
     out = {"caption": None, "align": None, "width": None, "height": None}
     captions = []
-    dims = []
     for raw in parts:
         s = raw.strip()
         if not s:
@@ -347,13 +348,21 @@ def parse_embed_params(parts: list[str]) -> dict:
         if low in ("left", "right", "center"):
             out["align"] = low
         elif s.isdigit():
-            dims.append(int(s))
+            # Solo il PRIMO int diventa width. Gli altri (es. `|350|left|350`)
+            # vengono ignorati perché spesso sono duplicati del width che
+            # finirebbero come height e deformerebbero l'aspect ratio.
+            if out["width"] is None:
+                out["width"] = int(s)
+        elif 'x' in low and all(p.isdigit() for p in low.split('x', 1) if p):
+            # Sintassi Obsidian canonica: `widthxheight` (es. `350x200`).
+            parts2 = low.split('x', 1)
+            if len(parts2) == 2 and parts2[0].isdigit() and parts2[1].isdigit():
+                if out["width"] is None:
+                    out["width"] = int(parts2[0])
+                if out["height"] is None:
+                    out["height"] = int(parts2[1])
         else:
             captions.append(s)
-    if dims:
-        out["width"] = dims[0]
-        if len(dims) > 1:
-            out["height"] = dims[1]
     if captions:
         out["caption"] = " | ".join(captions)
     return out
@@ -397,17 +406,14 @@ def make_embed_html(file_ref: str, params: dict) -> str:
     height = params.get("height")
     caption = params.get("caption")
 
-    # Auto-align: leave a placeholder class for images with width but no explicit
-    # left/right/center. A post-pass on the full body_html resolves these by
-    # ALTERNATING right/left in document order — same logic as the user's
-    # ImgBoldFix.js (counter increments only for un-aligned images: even→right,
-    # odd→left). This makes the PDF match what the user sees in Obsidian.
+    # Auto-align: leave a placeholder class for any embed without an explicit
+    # left/right/center marker. A post-pass on the full body_html resolves
+    # these by ALTERNATING right/left in document order — same as ImgBoldFix.js
+    # (it aligns ALL embeds, even those without a width param).
     if align:
         align_class = f" img-align-{align}"
-    elif width:
-        align_class = " img-align-auto"  # resolved later in resolve_auto_alignment()
     else:
-        align_class = ""
+        align_class = " img-align-auto"  # resolved later in resolve_auto_alignment()
     embed_classes = f"internal-embed image-embed is-loaded{align_class}"
 
     img_style_parts = []
@@ -1087,24 +1093,30 @@ li { margin: 0.25em 0; }
   break-inside: avoid;
 }
 
+/* display: table makes the figure shrink to its image's natural width,
+   so the caption never bleeds wider than the image. Without this, a long
+   caption on a small image would make the floated embed take much more
+   horizontal space than the image itself, crushing the wrap text. */
 .image-captions-figure {
-  display: block;
+  display: table;
   margin: 0;
   padding: 0;
   background: transparent;
   border: none;
   box-shadow: none;
-  max-width: 100%;
 }
 .image-captions-figure img {
   display: block;
   margin: 0;
   border-radius: 4px;
   height: auto;
-  max-width: 100%;
 }
 .image-captions-caption {
-  display: block;
+  /* display: table-caption pairs with the figure's `display: table`:
+     the caption inherits the table's (= image's) width and wraps onto
+     multiple lines instead of stretching the parent. */
+  display: table-caption;
+  caption-side: bottom;
   text-align: left;
   padding: 6px 2px 0;
   margin: 0;
@@ -1123,17 +1135,25 @@ li { margin: 0.25em 0; }
   display: block;
 }
 
-/* float align: wrapper ha width inline da make_embed_html */
+/* float align: wrapper ha width inline da make_embed_html.
+   `clear: both` evita che due float consecutivi si impilino orizzontalmente
+   (es. due immagini left in fila si schiacciavano una accanto all'altra
+   lasciando una colonna di testo strettissima a destra). Con clear: both
+   ogni float comincia una nuova "riga" e il testo wrappa attorno a una
+   sola immagine alla volta. */
 .internal-embed.image-embed.img-align-right {
   float: right;
+  clear: both;
   margin: 0.4em 0 0.6em 1.2em;
 }
 .internal-embed.image-embed.img-align-left {
   float: left;
+  clear: both;
   margin: 0.4em 1.2em 0.6em 0;
 }
 .internal-embed.image-embed.img-align-center {
   float: none;
+  clear: both;
   margin: 1em auto;
 }
 .internal-embed.image-embed.img-align-center .image-captions-figure,
@@ -1195,7 +1215,10 @@ li { margin: 0.25em 0; }
   font-size: 0.85em;
   color: var(--text-muted);
 }
-.footnote-ref { font-size: 0.75em; vertical-align: super; }
+/* Come Obsidian: il riferimento appare come [n] in apice (il <sup> alza già). */
+.footnote-ref { font-size: 0.75em; text-decoration: none; }
+.footnote-ref::before { content: "["; }
+.footnote-ref::after { content: "]"; }
 .footnote-backref { font-size: 0.85em; text-decoration: none; }
 hr.footnotes-sep,
 .footnote hr,
@@ -1355,6 +1378,38 @@ def filter_orphan_footnotes(body: str) -> str:
     )
 
 
+def renumber_footnotes(html: str) -> str:
+    """Obsidian numera le note in ordine di primo riferimento nel testo.
+    Python-Markdown assegna i numeri durante il parsing inline, che elabora
+    gli elementi annidati (es. note dentro le liste) dopo il resto: rinumeriamo
+    sui riferimenti in ordine di documento e riordiniamo la lista delle note."""
+    ref_re = re.compile(r'(<a class="footnote-ref" href="#fn:([^"]+)">)\d+(</a>)')
+    order: dict[str, int] = {}
+    for m in ref_re.finditer(html):
+        order.setdefault(m.group(2), len(order) + 1)
+    if not order:
+        return html
+    html = ref_re.sub(lambda m: f"{m.group(1)}{order[m.group(2)]}{m.group(3)}", html)
+
+    fn_block = re.search(r'(<div class="footnote">.*?<ol>\n?)(.*)(</ol>\s*</div>)\s*$', html, re.DOTALL)
+    if not fn_block:
+        return html
+    items = [it for it in re.split(r'(?=<li id="fn:)', fn_block.group(2)) if it.strip()]
+    def key(item):
+        m = re.match(r'<li id="fn:([^"]+)"', item)
+        return order.get(m.group(1), len(order) + 1) if m else len(order) + 1
+    items.sort(key=key)
+    items = [
+        re.sub(
+            r'(title="Jump back to footnote )\d+',
+            lambda m, n=key(it): f"{m.group(1)}{n}",
+            it,
+        )
+        for it in items
+    ]
+    return html[: fn_block.start()] + fn_block.group(1) + "".join(items) + fn_block.group(3)
+
+
 _LIST_ITEM_RE = re.compile(r"^ {0,3}(?:[-*+]|\d+[.)])[ \t]+\S")
 _LIST_START_RE = re.compile(r"^ {0,3}(?:[-*+]|1[.)])[ \t]+\S")
 _FENCE_RE = re.compile(r"^ {0,3}(```|~~~)")
@@ -1451,6 +1506,7 @@ def export_note(md_path: Path, out_html: Path, out_pdf=None, theme: str = DEFAUL
         },
     )
     body_html = md_engine.convert(body)
+    body_html = renumber_footnotes(body_html)
 
     # Strip <p> wrappers around lone embed placeholders (i blocchi tipo <p>WIKILINKPLACE001WIKILINKEND</p>
     # diventano semplici <div embed/> al di fuori del paragrafo).
